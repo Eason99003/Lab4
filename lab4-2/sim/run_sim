@@ -1,0 +1,21 @@
+rm -f fir_control.hex
+
+riscv32-unknown-elf-gcc -O3 -g -Wl,--no-warn-rwx-segments -g \
+	--save-temps \
+	-Xlinker -Map=output.map \
+	-I../../firmware \
+	-march=rv32i -mabi=ilp32 -D__vexriscv__ \
+	-Wl,-Bstatic,-T,../../firmware/sections.lds,--strip-discarded \
+	-ffreestanding -nostartfiles -o fir_control.elf ../../firmware/crt0_vex.S ../../firmware/isr.c fir.c fir_control.c
+# -nostartfiles	
+riscv32-unknown-elf-objcopy -O verilog fir_control.elf fir_control.hex
+riscv32-unknown-elf-objdump -D fir_control.elf > fir_control.out
+
+# to fix flash base address
+sed -ie 's/@10/@00/g' fir_control.hex
+
+iverilog -Ttyp -DFUNCTIONAL -DSIM -DUNIT_DELAY=#1 \
+	-f./include.rtl.list -o fir_control.vvp counter_la_fir_tb.v
+
+vvp fir_control.vvp
+rm -f fir_control.vvp fir_control.elf fir_control.hexe
